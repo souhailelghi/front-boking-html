@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Dates</title>
+    <style>
+        table {
+            width: 50%;
+            border-collapse: collapse;
+            margin: 25px 0;
+            font-size: 18px;
+            text-align: left;
+        }
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Available Booking Dates</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+            </tr>
+        </thead>
+        <tbody id="bookingDatesTable">
+            <!-- Booking dates will be appended here -->
+        </tbody>
+    </table>
+
+    <script>
+        async function fetchBookingDates() {
+            try {
+                const response = await fetch('https://localhost:7097/api/BookingList/dates');
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const bookingDates = await response.json();
+
+                // Select the table body where dates will be inserted
+                const tableBody = document.getElementById('bookingDatesTable');
+
+                // Loop through each booking date and append to the table
+                bookingDates.forEach(date => {
+                    const row = document.createElement('tr');
+                    const timeCell = document.createElement('td');
+
+                    // Format the time as 'Time: hh:mm:ss - hh:mm:ss'
+                    timeCell.textContent = `Time: ${date.dateFrom} - ${date.dateTo}`;
+
+                    row.appendChild(timeCell);
+                    tableBody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('There was a problem with the fetch operation:', error);
+            }
+        }
+
+        // Fetch booking dates on page load
+        window.onload = fetchBookingDates;
+    </script>
+</body>
+</html>

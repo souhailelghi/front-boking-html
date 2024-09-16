@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Management</title>
+    <style>
+        table {
+            width: 50%;
+            border-collapse: collapse;
+            margin: 25px 0;
+            font-size: 18px;
+            text-align: left;
+        }
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        fieldset {
+            margin-top: 20px;
+        }
+        legend {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Available Booking Dates</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+            </tr>
+        </thead>
+        <tbody id="bookingDatesTable">
+            <!-- Booking dates will be appended here -->
+        </tbody>
+    </table>
+
+    <h1>Create Booking</h1>
+    <form id="bookingForm">
+        <label for="refCode">Reference Code:</label>
+        <input type="text" id="refCode" name="refCode" required><br><br>
+        
+        <label for="clientId">Client ID:</label>
+        <input type="number" id="clientId" name="clientId" required><br><br>
+        
+        <label for="facilityId">Facility ID:</label>
+        <input type="number" id="facilityId" name="facilityId" required><br><br>
+        
+        <fieldset id="timeSlotsFieldset">
+            <legend>Select Time Slot:</legend>
+            <input type="radio" id="slot1" name="timeSlot" value="14:00:00-15:00:00" required>
+            <label for="slot1">14:00:00 - 15:00:00</label><br>
+            
+            <input type="radio" id="slot2" name="timeSlot" value="15:00:00-16:00:00">
+            <label for="slot2">15:00:00 - 16:00:00</label><br>
+            
+            <input type="radio" id="slot3" name="timeSlot" value="16:00:00-17:00:00">
+            <label for="slot3">16:00:00 - 17:00:00</label><br>
+            
+            <input type="radio" id="slot4" name="timeSlot" value="17:00:00-18:00:00">
+            <label for="slot4">17:00:00 - 18:00:00</label><br>
+            
+            <input type="radio" id="slot5" name="timeSlot" value="18:00:00-19:00:00">
+            <label for="slot5">18:00:00 - 19:00:00</label><br>
+            
+            <input type="radio" id="slot6" name="timeSlot" value="19:00:00-20:00:00">
+            <label for="slot6">19:00:00 - 20:00:00</label><br>
+            
+            <input type="radio" id="slot7" name="timeSlot" value="20:00:00-21:00:00">
+            <label for="slot7">20:00:00 - 21:00:00</label><br>
+            
+            <input type="radio" id="slot8" name="timeSlot" value="21:00:00-22:00:00">
+            <label for="slot8">21:00:00 - 22:00:00</label><br>
+            
+            <input type="radio" id="slot9" name="timeSlot" value="22:00:00-23:00:00">
+            <label for="slot9">22:00:00 - 23:00:00</label><br>
+        </fieldset><br>
+        
+        <label for="status">Status:</label>
+        <input type="number" id="status" name="status" min="0" max="3" required><br><br>
+        
+        <button type="submit">Submit</button>
+    </form>
+
+    <script>
+        async function fetchBookingDates() {
+            try {
+                const response = await fetch('https://localhost:7097/api/BookingList/dates');
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const bookingDates = await response.json();
+
+                // Select the table body where dates will be inserted
+                const tableBody = document.getElementById('bookingDatesTable');
+
+                // Loop through each booking date and append to the table
+                bookingDates.forEach(date => {
+                    const row = document.createElement('tr');
+                    const timeCell = document.createElement('td');
+
+                    // Format the time as 'Time: hh:mm:ss - hh:mm:ss'
+                    timeCell.textContent = `Time: ${date.dateFrom} - ${date.dateTo}`;
+
+                    row.appendChild(timeCell);
+                    tableBody.appendChild(row);
+                });
+
+                // Disable booked time slots
+                disableBookedSlots(bookingDates);
+            } catch (error) {
+                console.error('There was a problem with the fetch operation:', error);
+            }
+        }
+
+        function disableBookedSlots(bookedTimes) {
+            bookedTimes.forEach(time => {
+                const dateFrom = time.dateFrom;
+                const dateTo = time.dateTo;
+                const timeSlotValue = `${dateFrom}-${dateTo}`;
+                
+                // Find the input with the matching time slot and disable it
+                const radioInput = document.querySelector(`input[value="${timeSlotValue}"]`);
+                if (radioInput) {
+                    radioInput.disabled = true;
+                    radioInput.nextElementSibling.style.textDecoration = 'line-through'; // Optional: visually mark the slot as unavailable
+                    radioInput.nextElementSibling.style.color = 'red';
+                }
+            });
+        }
+
+        document.getElementById('bookingForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent the default form submission
+            
+            // Collect form data
+            const timeSlot = document.querySelector('input[name="timeSlot"]:checked').value.split('-');
+            const formData = {
+                refCode: document.getElementById('refCode').value,
+                clientId: parseInt(document.getElementById('clientId').value),
+                facilityId: parseInt(document.getElementById('facilityId').value),
+                dateFrom: timeSlot[0], // TimeSpan as HH:MM:SS
+                dateTo: timeSlot[1], // TimeSpan as HH:MM:SS
+                status: parseInt(document.getElementById('status').value),
+                dateCreated: new Date().toISOString(), // Current date and time in ISO 8601 format
+                dateUpdated: new Date().toISOString()  // Current date and time in ISO 8601 format
+            };
+            
+            // Send the data to the API
+            fetch('https://localhost:7097/api/BookingList', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => { throw new Error(data.message || 'Server error'); });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Success:', data);
+                alert('Booking created successfully!');
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                alert('An error occurred while creating the booking: ' + error.message);
+            });
+        });
+
+        // Fetch booking dates on page load
+        window.onload = fetchBookingDates;
+    </script>
+</body>
+</html>

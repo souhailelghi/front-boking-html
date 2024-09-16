@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DateHours & Booking Management</title>
+    <style>
+        table {
+            width: 50%;
+            border-collapse: collapse;
+            margin: 25px 0;
+            font-size: 18px;
+            text-align: left;
+        }
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        fieldset {
+            margin-top: 20px;
+        }
+        legend {
+            font-weight: bold;
+        }
+        .container {
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DateHours List</h1>
+        <div id="dateHoursList"></div>
+    </div>
+
+    <h1>Available Booking Dates</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+            </tr>
+        </thead>
+        <tbody id="bookingDatesTable">
+            <!-- Booking dates will be appended here -->
+        </tbody>
+    </table>
+
+    <h1>Create Booking</h1>
+    <form id="bookingForm">
+        <label for="refCode">Reference Code:</label>
+        <input type="text" id="refCode" name="refCode" required><br><br>
+        
+        <label for="clientId">Client ID:</label>
+        <input type="number" id="clientId" name="clientId" required><br><br>
+        
+        <label for="facilityId">Facility ID:</label>
+        <input type="number" id="facilityId" name="facilityId" required><br><br>
+        
+        <fieldset id="timeSlotsFieldset">
+            <legend>Select Time Slot:</legend>
+            <!-- Time slots will be dynamically added here -->
+        </fieldset><br>
+        
+        <label for="status">Status:</label>
+        <input type="number" id="status" name="status" min="0" max="3" required><br><br>
+        
+        <button type="submit">Submit</button>
+    </form>
+
+    <script>
+        // Fetch DateHours data and update the List and Time Slot fieldset
+        async function fetchDateHours() {
+            try {
+                const response = await fetch('https://localhost:7097/api/DateHours');
+                if (response.ok) {
+                    const dateHoursList = await response.json();
+
+                    // Update DateHours List
+                    const dateHoursContainer = document.getElementById('dateHoursList');
+                    dateHoursContainer.innerHTML = ''; // Clear previous data
+                    const ul = document.createElement('ul');
+                    dateHoursList.forEach(dateHours => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+                            <strong>Facility ID:</strong> ${dateHours.facilityId}<br>
+                            <strong>Day:</strong> ${dateHours.day}<br>
+                            <strong>Date Creation:</strong> ${new Date(dateHours.dateCreation).toLocaleString()}<br>
+                            <strong>Time Ranges:</strong>
+                            <div class="timeRangeList">
+                                ${dateHours.timeRanges.map(tr => `
+                                    <div>
+                                        <strong>Start Time:</strong> ${tr.hoursStart}<br>
+                                        <strong>End Time:</strong> ${tr.hoursEnd}<br>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                        ul.appendChild(li);
+                    });
+                    dateHoursContainer.appendChild(ul);
+
+                    // Update Time Slot fieldset
+                    const timeSlotsFieldset = document.getElementById('timeSlotsFieldset');
+                    timeSlotsFieldset.innerHTML = '<legend>Select Time Slot:</legend>'; // Reset fieldset content
+
+                    dateHoursList.forEach(dateHours => {
+                        dateHours.timeRanges.forEach(timeRange => {
+                            const timeSlotValue = `${dateHours.facilityId}-${timeRange.hoursStart}-${timeRange.hoursEnd}`;
+
+                            // Create and append radio input
+                            const radioInput = document.createElement('input');
+                            radioInput.type = 'radio';
+                            radioInput.id = timeSlotValue;
+                            radioInput.name = 'timeSlot';
+                            radioInput.value = timeSlotValue;
+
+                            // Create and append label
+                            const label = document.createElement('label');
+                            label.htmlFor = timeSlotValue;
+                            label.textContent = `${timeRange.hoursStart} - ${timeRange.hoursEnd}`;
+
+                            // Append input and label to fieldset
+                            timeSlotsFieldset.appendChild(radioInput);
+                            timeSlotsFieldset.appendChild(label);
+                            timeSlotsFieldset.appendChild(document.createElement('br'));
+                        });
+                    });
+                } else {
+                    const error = await response.text();
+                    alert(`Error: ${error}`);
+                }
+            } catch (error) {
+                alert('An error occurred: ' + error.message);
+            }
+        }
+
+        // Fetch booking dates
+        async function fetchBookingDates() {
+            try {
+                const response = await fetch('https://localhost:7097/api/BookingList/dates');
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const bookingDates = await response.json();
+                const tableBody = document.getElementById('bookingDatesTable');
+                bookingDates.forEach(date => {
+                    const row = document.createElement('tr');
+                    const timeCell = document.createElement('td');
+                    timeCell.textContent = `Time: ${date.dateFrom} - ${date.dateTo}`;
+                    row.appendChild(timeCell);
+                    tableBody.appendChild(row);
+                });
+                disableBookedSlots(bookingDates);
+            } catch (error) {
+                console.error('There was a problem with the fetch operation:', error);
+            }
+        }
+
+        // Disable booked slots
+        function disableBookedSlots(bookedTimes) {
+            bookedTimes.forEach(time => {
+                const timeSlotValue = `${time.facilityId}-${time.dateFrom}-${time.dateTo}`;
+                const radioInput = document.querySelector(`input[value="${timeSlotValue}"]`);
+                if (radioInput) {
+                    radioInput.disabled = true;
+                    radioInput.nextElementSibling.style.textDecoration = 'line-through';
+                    radioInput.nextElementSibling.style.color = 'red';
+                }
+            });
+        }
+
+        // Handle booking form submission
+        document.getElementById('bookingForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent the default form submission
+            const timeSlot = document.querySelector('input[name="timeSlot"]:checked').value.split('-');
+            const formData = {
+                refCode: document.getElementById('refCode').value,
+                clientId: parseInt(document.getElementById('clientId').value),
+                facilityId: parseInt(document.getElementById('facilityId').value),
+                dateFrom: timeSlot[1],
+                dateTo: timeSlot[2],
+                status: parseInt(document.getElementById('status').value),
+                dateCreated: new Date().toISOString(),
+                dateUpdated: new Date().toISOString()
+            };
+            
+            fetch('https://localhost:7097/api/BookingList', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.ok ? response.json() : response.json().then(data => { throw new Error(data.message || 'Server error'); }))
+            .then(data => {
+                console.log('Success:', data);
+                alert('Booking created successfully!');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while creating the booking: ' + error.message);
+            });
+        });
+
+        // Load data on page load
+        window.onload = async function() {
+            await fetchDateHours();
+            await fetchBookingDates();
+        };
+    </script>
+</body>
+</html>
